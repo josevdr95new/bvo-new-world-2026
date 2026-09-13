@@ -1,0 +1,386 @@
+{
+  "total": 51,
+  "bleach": [
+    {
+      "name": "Kurosaki Ichigo",
+      "abilities": [
+        "A045",
+        "A046",
+        "A048",
+        "A04A",
+        "A04C"
+      ],
+      "offset": 1816,
+      "anime": "Bleach"
+    },
+    {
+      "name": "Evil Ichigo",
+      "abilities": [
+        "A0BY",
+        "A0C1",
+        "A0C2",
+        "A0C3",
+        "A0C5"
+      ],
+      "offset": 6653,
+      "anime": "Bleach"
+    },
+    {
+      "name": "Zaraki Kenpachi",
+      "abilities": [
+        "A0A4",
+        "A0A6",
+        "A0A7",
+        "A0AA",
+        "A0AB"
+      ],
+      "offset": 14506,
+      "anime": "Bleach"
+    },
+    {
+      "name": "Kuchiki Byakuya",
+      "abilities": [],
+      "offset": 19271,
+      "anime": "Bleach"
+    },
+    {
+      "name": "Kuchiki Rukia",
+      "abilities": [],
+      "offset": 25661,
+      "anime": "Bleach"
+    },
+    {
+      "name": "Ishida Uryu",
+      "abilities": [],
+      "offset": 27668,
+      "anime": "Bleach"
+    },
+    {
+      "name": "Sado Yasutora",
+      "abilities": [],
+      "offset": 30130,
+      "anime": "Bleach"
+    },
+    {
+      "name": "Shihoin Yoruichi",
+      "abilities": [],
+      "offset": 31400,
+      "anime": "Bleach"
+    },
+    {
+      "name": "Sosuke Aizen",
+      "abilities": [],
+      "offset": 234231,
+      "anime": "Bleach"
+    },
+    {
+      "name": "Hitsugaya Toshiro",
+      "abilities": [],
+      "offset": 242597,
+      "anime": "Bleach"
+    },
+    {
+      "name": "Yamamoto Genryusai",
+      "abilities": [],
+      "offset": 289103,
+      "anime": "Bleach"
+    },
+    {
+      "name": "Yhwach",
+      "abilities": [
+        ""
+      ],
+      "offset": 333255,
+      "anime": "Bleach"
+    },
+    {
+      "name": "Ulquiorra",
+      "abilities": [],
+      "offset": 365717,
+      "anime": "Bleach"
+    },
+    {
+      "name": "Coyote Starrk",
+      "abilities": [],
+      "offset": 369952,
+      "anime": "Bleach"
+    },
+    {
+      "name": "Grimmjow Jaegerjaquez",
+      "abilities": [],
+      "offset": 371909,
+      "anime": "Bleach"
+    },
+    {
+      "name": "Madarame Ikkaku",
+      "abilities": [],
+      "offset": 447266,
+      "anime": "Bleach"
+    },
+    {
+      "name": "Soi Fon",
+      "abilities": [],
+      "offset": 473514,
+      "anime": "Bleach"
+    },
+    {
+      "name": "Shunsui Kyoraku",
+      "abilities": [],
+      "offset": 490050,
+      "anime": "Bleach"
+    },
+    {
+      "name": "Ichibei Hyosube",
+      "abilities": [],
+      "offset": 494912,
+      "anime": "Bleach"
+    }
+  ],
+  "onepiece": [
+    {
+      "name": "Monkey D. Luffy",
+      "abilities": [
+        "A04F",
+        "A0B7",
+        "A0IQ",
+        "A04J",
+        "A04L"
+      ],
+      "offset": 3149,
+      "anime": "One Piece"
+    },
+    {
+      "name": "Roronoa Zoro",
+      "abilities": [
+        "A05C",
+        "A05D",
+        "A05F",
+        "A05G",
+        "A05H"
+      ],
+      "offset": 8069,
+      "anime": "One Piece"
+    },
+    {
+      "name": "Sanji",
+      "abilities": [],
+      "offset": 15775,
+      "anime": "One Piece"
+    },
+    {
+      "name": "Nami",
+      "abilities": [],
+      "offset": 21372,
+      "anime": "One Piece"
+    },
+    {
+      "name": "Usopp",
+      "abilities": [],
+      "offset": 23282,
+      "anime": "One Piece"
+    },
+    {
+      "name": "Shirohige",
+      "abilities": [],
+      "offset": 223397,
+      "anime": "One Piece"
+    },
+    {
+      "name": "Portgas D. Ace",
+      "abilities": [
+        "A098",
+        "A099",
+        "A09B",
+        "A09C",
+        "A09D"
+      ],
+      "offset": 254023,
+      "anime": "One Piece"
+    },
+    {
+      "name": "Crocodile",
+      "abilities": [],
+      "offset": 273705,
+      "anime": "One Piece"
+    },
+    {
+      "name": "Enel",
+      "abilities": [],
+      "offset": 287315,
+      "anime": "One Piece"
+    },
+    {
+      "name": "Juraquille Mihawk",
+      "abilities": [],
+      "offset": 310032,
+      "anime": "One Piece"
+    },
+    {
+      "name": "Rob Lucci",
+      "abilities": [],
+      "offset": 345748,
+      "anime": "One Piece"
+    },
+    {
+      "name": "Sakazuki",
+      "abilities": [],
+      "offset": 354559,
+      "anime": "One Piece"
+    },
+    {
+      "name": "Borsalino",
+      "abilities": [],
+      "offset": 356189,
+      "anime": "One Piece"
+    },
+    {
+      "name": "Issho",
+      "abilities": [
+        "A0FP",
+        "A0FL",
+        "A0FM",
+        "A0FO",
+        "A0FU"
+      ],
+      "offset": 358298,
+      "anime": "One Piece"
+    },
+    {
+      "name": "Kuzan",
+      "abilities": [],
+      "offset": 367942,
+      "anime": "One Piece"
+    },
+    {
+      "name": "Minato Namikaze",
+      "abilities": [],
+      "offset": 465084,
+      "anime": "One Piece"
+    },
+    {
+      "name": "Donquixote Doflamingo",
+      "abilities": [],
+      "offset": 478832,
+      "anime": "One Piece"
+    },
+    {
+      "name": "Shanks",
+      "abilities": [
+        ""
+      ],
+      "offset": 493178,
+      "anime": "One Piece"
+    }
+  ],
+  "naruto": [
+    {
+      "name": "Naruto Uzumaki",
+      "abilities": [],
+      "offset": 9948,
+      "anime": "Naruto"
+    },
+    {
+      "name": "Uchiha Sasuke",
+      "abilities": [],
+      "offset": 12121,
+      "anime": "Naruto"
+    },
+    {
+      "name": "Uchiha Madara",
+      "abilities": [
+        "A021",
+        "A088",
+        "A087",
+        "A085",
+        "A089"
+      ],
+      "offset": 18001,
+      "anime": "Naruto"
+    },
+    {
+      "name": "Kakashi Hatake",
+      "abilities": [],
+      "offset": 159974,
+      "anime": "Naruto"
+    },
+    {
+      "name": "Neji Hyuga",
+      "abilities": [],
+      "offset": 200082,
+      "anime": "Naruto"
+    },
+    {
+      "name": "Itachi Uchiha",
+      "abilities": [],
+      "offset": 262386,
+      "anime": "Naruto"
+    },
+    {
+      "name": "Yahiko",
+      "abilities": [],
+      "offset": 279855,
+      "anime": "Naruto"
+    },
+    {
+      "name": "Deidara",
+      "abilities": [],
+      "offset": 291077,
+      "anime": "Naruto"
+    },
+    {
+      "name": "Hidan",
+      "abilities": [
+        "A0BO",
+        "A0BQ",
+        "A0BR",
+        "A0BT",
+        "A0BW"
+      ],
+      "offset": 315076,
+      "anime": "Naruto"
+    },
+    {
+      "name": "Zabuza Momochi",
+      "abilities": [
+        "A0CD",
+        "A0CF",
+        "A0CG",
+        "A0CJ",
+        "A0CK"
+      ],
+      "offset": 335578,
+      "anime": "Naruto"
+    },
+    {
+      "name": "Uchiha Obito",
+      "abilities": [],
+      "offset": 359787,
+      "anime": "Naruto"
+    },
+    {
+      "name": "Hashirama Senju",
+      "abilities": [
+        "A0E7",
+        "A0EA",
+        "A0EB",
+        "A0E8",
+        "A05I"
+      ],
+      "offset": 362018,
+      "anime": "Naruto"
+    },
+    {
+      "name": "Tobirama Senju",
+      "abilities": [],
+      "offset": 363668,
+      "anime": "Naruto"
+    },
+    {
+      "name": "Kaguya Otsutsuki",
+      "abilities": [],
+      "offset": 374155,
+      "anime": "Naruto"
+    }
+  ],
+  "other": []
+}
