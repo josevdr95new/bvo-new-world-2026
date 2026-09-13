@@ -1,0 +1,27 @@
+# Dependencies
+__pycache__/
+*.pyc
+*.pyo
+.Python
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+*.tmp
+*.bak
+*.log
+
+# Extracted data (keep them, they're the result of decompilation)
+# extracted/
+
+# Large files (keep the .w3x, it's the source map)
+# downloads/
