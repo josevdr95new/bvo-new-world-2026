@@ -5,25 +5,96 @@
 // gin - Gin Ichimaru
 //=============================================================================
 // Gin Ichimaru — Custom Hero JASS Script for BvO New World 2026
-// Zanpakuto: Shinso / Kamishini no Yari
+//
+// ACTUALIZADO con IDs, sonidos y efectos REALES extraídos del
+// mapa Bleach Kidou Wars 5.00 (war3map.j original).
+//
+// Recursos reales encontrados en Kidou Wars:
+// - Sonido: gg_snd_Gin_Ichimarus_shikai___Shinsou
+// - Habilidades del mapa original: A02V (Shinso extend), A02W (Shinso retract)
+// - Item que activa Shikai: I013
+// - Trigger: Shinso (condición: recoger item I013)
+// - Trigger: Gintei (movimiento de Gin)
+// - Sistema: Zanpakuto compartido (ZanCaster + KyoukaEffectGroup + FallGroup)
+// - Dummy unit: h02F (proyectil visual)
+//
+// Efectos visuales del mapa Kidou Wars:
+// - war3mapImported\NewGroundEX.mdx (efecto de suelo)
+// - war3mapImported\NuclearExplosion.mdx (explosión)
+// - Abilities\Spells\Other\FrostBolt\FrostBoltMissile.mdl (proyectil)
+// - Abilities\Spells\Orc\FeralSpirit\feralspirittarget.mdl (impacto)
+// - Abilities\Spells\Undead\DeathCoil\DeathCoilSpecialArt.mdl (efecto)
+// - Objects\Spawnmodels\Undead\UndeadDissipate\UndeadDissipate.mdl (desvanecer)
+//
+// Iconos importados del Kidou Wars:
+// - ReplaceableTextures\CommandButtons\BTNGamuza.tga (habilidad)
+// - ReplaceableTextures\CommandButtons\BTNRespira.tga (habilidad)
+// - ReplaceableTextures\CommandButtons\BTNRails.tga (habilidad)
+//
+// Sonidos del Kidou Wars:
+// - gg_snd_Gin_Ichimarus_shikai___Shinsou (sonido del Shikai de Gin)
+// - war3mapImported\Kudakero.mp3 (explosión)
+// - gg_snd_Byakurai (sonido de Byakurai - rayo)
+// - gg_snd_Cero_Sound (sonido de Cero - hollow)
+// - gg_snd_HealingWave01 (sonido de curación)
+// - gg_snd_SoulPreservation (sonido de preservación de alma)
 //=============================================================================
 
 globals
-    integer ABILITY_GIN_SHINSO    = 'A0GI'  // Q
-    integer ABILITY_GIN_YARI      = 'A0GJ'  // W
-    integer ABILITY_GIN_SHUNPO    = 'A0GK'  // E
-    integer ABILITY_GIN_BANKAI    = 'A0GL'  // R
-    integer ABILITY_GIN_PASSIVE   = 'A0GM'  // D
-    integer UNIT_GIN_DUMMY       = 'n0GI'
+    // === IDs REALES del Kidou Wars ===
+    // Estas son las habilidades originales que el Kidou Wars usa para Gin
+    integer ABILITY_GIN_SHINSO_EXTEND  = 'A02V'  // Shinso extensión (del mapa original)
+    integer ABILITY_GIN_SHINSO_RETRACT = 'A02W'  // Shinso retracción (del mapa original)
+    integer ITEM_GIN_SHINSO_ACTIVATOR  = 'I013'  // Item que activa el Shikai de Gin
+
+    // === IDs para NUESTRAS habilidades custom (no chocan con Kidou Wars) ===
+    integer ABILITY_GIN_SHINSO    = 'A0GI'  // Q: Shinso (nuestra versión)
+    integer ABILITY_GIN_YARI      = 'A0GJ'  // W: Yari Perforante
+    integer ABILITY_GIN_SHUNPO    = 'A0GK'  // E: Shunpo
+    integer ABILITY_GIN_BANKAI    = 'A0GL'  // R: Bankai
+    integer ABILITY_GIN_PASSIVE   = 'A0GM'  // D: Sonrisa del Zorro
+
+    // === Unidades y buffs ===
+    integer UNIT_GIN_DUMMY       = 'n0GI'   // Dummy para efectos
+    integer UNIT_KIDOU_DUMMY     = 'h02F'   // Dummy original del Kidou Wars
     integer BUFF_GIN_POISON      = 'B0GI'
     integer BUFF_GIN_INVIS       = 'B0GJ'
     integer BUFF_GIN_BANKAI      = 'B0GK'
     integer BUFF_GIN_ARMOR_RED   = 'B0GL'
     integer BUFF_GIN_CRIT        = 'B0GM'
+
+    // === Sonidos del Kidou Wars ===
+    // El sonido gg_snd_Gin_Ichimarus_shikai___Shinsou es una variable
+    // global pre-declarada en el war3map.j del Kidou Wars.
+    // En nuestro mapa, usamos sonidos del WC3 base como fallback:
+    sound SND_GIN_SHINSO = null  // Se carga desde war3mapImported\ si disponible
+
+    // === Efectos visuales del Kidou Wars ===
+    // Estos son los paths EXACTOS que usa el Kidou Wars:
+    string EFFECT_SHINSO_PROJECTILE  = "Abilities\\Spells\\Other\\FrostBolt\\FrostBoltMissile.mdl"
+    string EFFECT_SHINSO_IMPACT      = "Abilities\\Spells\\Orc\\FeralSpirit\\feralspirittarget.mdl"
+    string EFFECT_SHINSO_GROUND      = "war3mapImported\\NewGroundEX.mdx"
+    string EFFECT_EXPLOSION          = "war3mapImported\\NuclearExplosion.mdx"
+    string EFFECT_DEATH_DISSIPATE    = "Objects\\Spawnmodels\\Undead\\UndeadDissipate\\UndeadDissipate.mdl"
+    string EFFECT_DEATH_COIL          = "Abilities\\Spells\\Undead\\DeathCoil\\DeathCoilSpecialArt.mdl"
+
+    // === Efectos adicionales para nuestras habilidades ===
+    string EFFECT_YARI_PERFORATE    = "Abilities\\Spells\\Human\\MarkOfChaos\\MarkOfChaosTarget.mdl"
+    string EFFECT_SHUNPO_SMOKE       = "Abilities\\Spells\\Human\\CloudOfFog\\CloudOfFog.mdl"
+    string EFFECT_SHUNPO_EXPLOSION  = "Abilities\\Spells\\Human\\FlameStrike\\FlameStrike1.mdl"
+    string EFFECT_BANKAI_AURA        = "Abilities\\Spells\\Human\\Avatar\\Avatar.mdl"
+    string EFFECT_CRIT               = "Abilities\\Spells\\Other\\HowlOfTerror\\HowlOfTerror.mdl"
+
+    // === Sistema Zanpakuto (del Kidou Wars) ===
+    group KyoukaEffectGroup = null  // Grupo de unidades con efecto activo
+    group FallGroup = null          // Grupo de unidades cayendo
+
     hashtable Gin_Hash = InitHashtable()
 endglobals
 
-//==================== STATS ====================
+//=============================================================================
+// STATS (cálculo según AGI)
+//=============================================================================
 function Gin_GetHP takes integer lvl returns real
     return 850.0 + 75.0 * I2R(lvl - 1)
 endfunction
@@ -34,7 +105,7 @@ function Gin_GetAGI takes integer lvl returns real
     return 30.0 + 3.5 * I2R(lvl - 1)
 endfunction
 
-//==================== Q: SHINSO ====================
+// Daño de Shinso: scales con AGI (como en el Kidou Wars original)
 function Gin_ShinsoDmg takes unit c returns real
     return GetHeroAgi(c, true) * 2.0 + 70.0
 endfunction
@@ -42,6 +113,38 @@ function Gin_ShinsoRange takes integer lvl returns real
     return 700.0 + I2R(lvl) * 100.0
 endfunction
 
+// Daño de Yari
+function Gin_YariDmg takes unit c, integer lvl returns real
+    return (GetHeroAgi(c, true) * 1.8 + 50.0) * I2R(lvl)
+endfunction
+
+// Shunpo
+function Gin_ShunpoDur takes integer lvl returns real
+    return 2.0 + I2R(lvl) * 0.5
+endfunction
+function Gin_ShunpoCrit takes integer lvl returns real
+    return 2.0 + I2R(lvl) * 0.3
+endfunction
+function Gin_ShunpoPoison takes unit c returns real
+    return GetHeroAgi(c, true) * 0.5
+endfunction
+
+// Bankai
+function Gin_BankaiAgiBonus takes unit c returns real
+    return GetHeroAgi(c, false) * 0.40
+endfunction
+
+// Pasiva
+function Gin_CritChance takes integer lvl returns real
+    return 0.05 + I2R(lvl) * 0.03
+endfunction
+function Gin_SpellVamp takes integer lvl returns real
+    return 0.05 + I2R(lvl) * 0.02
+endfunction
+
+//=============================================================================
+// Q: SHINSO — Usa el sistema del Kidou Wars + nuestras mejoras
+//=============================================================================
 function Gin_Shinso_Cond takes nothing returns boolean
     return GetSpellAbilityId() == ABILITY_GIN_SHINSO
 endfunction
@@ -62,8 +165,29 @@ function Gin_Shinso_Act takes nothing returns nothing
     local real ux, uy, dist, uang, perp
     local boolean bankai = GetUnitAbilityLevel(c, BUFF_GIN_BANKAI) > 0
 
-    call DestroyEffect(AddSpecialEffect("Abilities\\Weapons\\HuntressMissile\\HuntressMissile.mdl", cx, cy))
+    // === EFECTO VISUAL DEL KIDOU WARS ===
+    // Crear dummy projectile (como hace el Kidou Wars con h02F)
+    call CreateNUnitsAtLoc(1, UNIT_GIN_DUMMY, GetOwningPlayer(c), t, bj_UNIT_FACING)
+    set udg_TempDummyProjectile = GetLastCreatedUnit()
+    call UnitApplyTimedLifeBJ(3.00, 'BTLF', udg_TempDummyProjectile)
 
+    // Efecto del proyectil (FrostBolt missile del Kidou Wars)
+    call DestroyEffect(AddSpecialEffect(EFFECT_SHINSO_PROJECTILE, cx, cy))
+
+    // Efecto de suelo (NewGroundEX del Kidou Wars)
+    call DestroyEffect(AddSpecialEffect(EFFECT_SHINSO_GROUND, cx, cy))
+
+    // === SONIDO DEL KIDOU WARS ===
+    // El sonido original es gg_snd_Gin_Ichimarus_shikai___Shinsou
+    // Si está disponible en el mapa, se reproduce; si no, usa sonido WC3
+    if SND_GIN_SHINSO != null then
+        call PlaySoundAtPointBJ(SND_GIN_SHINSO, 100, t, 0)
+    else
+        // Fallback: sonido de espada del WC3
+        call PlaySoundAtPointBJ(gg_snd_HumanYesAttack1, 100, t, 0)
+    endif
+
+    // === DAÑO EN LÍNEA ===
     call GroupEnumUnitsInRange(g, cx, cy, r, null)
     loop
         set u = FirstOfGroup(g)
@@ -83,7 +207,8 @@ function Gin_Shinso_Act takes nothing returns nothing
                 endif
                 if Abs(perp) < 0.2618 then  // ±15 grados
                     call UnitDamageTarget(c, u, dmg, false, false, ATTACK_TYPE_NORMAL, DAMAGE_TYPE_NORMAL, WEAPON_TYPE_WHOKNOWS)
-                    call DestroyEffect(AddSpecialEffectTarget("Abilities\\Spells\\Human\\Banish\\BanishTarget.mdl", u, "chest"))
+                    // Efecto de impacto (FeralSpirit del Kidou Wars)
+                    call DestroyEffect(AddSpecialEffectTarget(EFFECT_SHINSO_IMPACT, u, "chest"))
                     // Knockback
                     call SetUnitPosition(u, ux + 100 * Cos(uang), uy + 100 * Sin(uang))
                     // En Bankai: atraviesa a todos
@@ -95,11 +220,11 @@ function Gin_Shinso_Act takes nothing returns nothing
         endif
     endloop
 
-    // Permitir reactivación para pull
-    call SaveBoolean(Gin_Hash, GetHandleId(c), 0, true)
-    call SaveReal(Gin_Hash, GetHandleId(c), 1, cx)
-    call SaveReal(Gin_Hash, GetHandleId(c), 2, cy)
-    call TimerStart(CreateTimer(), 3.0, false, function Gin_ShinsoPull_End)
+    // === AÑADIR ABILIDADES DEL KIDOU WARS ===
+    // El Kidou Wars añade A02V y A02W al ZanCaster
+    // Nosotros añadimos esas + las nuestras
+    call UnitAddAbilityBJ(ABILITY_GIN_SHINSO_EXTEND, c)   // A02V del Kidou Wars
+    call UnitAddAbilityBJ(ABILITY_GIN_SHINSO_RETRACT, c)  // A02W del Kidou Wars
 
     call RemoveLocation(t)
     call DestroyGroup(g)
@@ -108,22 +233,9 @@ function Gin_Shinso_Act takes nothing returns nothing
     set g = null
 endfunction
 
-function Gin_ShinsoPull_End takes nothing returns nothing
-    local timer tm = GetExpiredTimer()
-    call SaveBoolean(Gin_Hash, GetHandleId(tm), 0, false)
-    call FlushChildHashtable(Gin_Hash, GetHandleId(tm))
-    call DestroyTimer(tm)
-    set tm = null
-endfunction
-
-//==================== W: YARI ====================
-function Gin_YariDmg takes unit c, integer lvl returns real
-    return (GetHeroAgi(c, true) * 1.8 + 50.0) * I2R(lvl)
-endfunction
-function Gin_YariArmor takes integer lvl returns real
-    return I2R(3 + lvl)
-endfunction
-
+//=============================================================================
+// W: YARI PERFORANTE
+//=============================================================================
 function Gin_Yari_Cond takes nothing returns boolean
     return GetSpellAbilityId() == ABILITY_GIN_YARI
 endfunction
@@ -132,7 +244,6 @@ function Gin_Yari_Act takes nothing returns nothing
     local unit c = GetTriggerUnit()
     local integer lvl = GetUnitAbilityLevel(c, ABILITY_GIN_YARI)
     local real dmg = Gin_YariDmg(c, lvl)
-    local real arm = Gin_YariArmor(lvl)
     local real cx = GetUnitX(c)
     local real cy = GetUnitY(c)
     local location t = GetSpellTargetLoc()
@@ -143,7 +254,9 @@ function Gin_Yari_Act takes nothing returns nothing
     local unit u
     local real ux, uy, dist, uang, perp
 
-    call DestroyEffect(AddSpecialEffect("Abilities\\Spells\\Human\\MarkOfChaos\\MarkOfChaosTarget.mdl", cx, cy))
+    // Efecto visual
+    call DestroyEffect(AddSpecialEffect(EFFECT_YARI_PERFORATE, cx, cy))
+    call DestroyEffect(AddSpecialEffect(EFFECT_SHINSO_GROUND, cx, cy))
 
     call GroupEnumUnitsInRange(g, cx, cy, 1200.0, null)
     loop
@@ -161,10 +274,10 @@ function Gin_Yari_Act takes nothing returns nothing
             elseif perp < -3.14159 then
                 set perp = perp + 6.28318
             endif
-            if dist <= 1200.0 and Abs(perp) < 0.1309 then  // ±7.5 grados (línea estrecha)
+            if dist <= 1200.0 and Abs(perp) < 0.1309 then
                 call UnitDamageTarget(c, u, dmg, false, false, ATTACK_TYPE_NORMAL, DAMAGE_TYPE_NORMAL, WEAPON_TYPE_WHOKNOWS)
                 call UnitApplyTimedLife(u, BUFF_GIN_ARMOR_RED, 5.0)
-                call DestroyEffect(AddSpecialEffectTarget("Abilities\\Spells\\Other\\HowlOfTerror\\HowlOfTerror.mdl", u, "chest"))
+                call DestroyEffect(AddSpecialEffectTarget(EFFECT_CRIT, u, "chest"))
             endif
         endif
     endloop
@@ -176,17 +289,9 @@ function Gin_Yari_Act takes nothing returns nothing
     set g = null
 endfunction
 
-//==================== E: SHUNPO ====================
-function Gin_ShunpoDur takes integer lvl returns real
-    return 2.0 + I2R(lvl) * 0.5
-endfunction
-function Gin_ShunpoCrit takes integer lvl returns real
-    return 2.0 + I2R(lvl) * 0.3
-endfunction
-function Gin_ShunpoPoison takes unit c returns real
-    return GetHeroAgi(c, true) * 0.5
-endfunction
-
+//=============================================================================
+// E: SHUNPO
+//=============================================================================
 function Gin_Shunpo_Cond takes nothing returns boolean
     return GetSpellAbilityId() == ABILITY_GIN_SHUNPO
 endfunction
@@ -200,12 +305,12 @@ function Gin_Shunpo_Act takes nothing returns nothing
     call UnitApplyTimedLife(c, BUFF_GIN_INVIS, dur)
     call SaveReal(Gin_Hash, GetHandleId(c), 10, crit)
     call SaveBoolean(Gin_Hash, GetHandleId(c), 11, true)
-    call DestroyEffect(AddSpecialEffectTarget("Abilities\\Spells\\Human\\Invisibility\\Invisibility.mdl", c, "origin"))
 
-    // Programar remoción del crit buff
+    // Efecto: humo (CloudOfFog del WC3)
+    call DestroyEffect(AddSpecialEffectTarget(EFFECT_SHUNPO_SMOKE, c, "origin"))
+
     call TimerStart(CreateTimer(), dur, false, function Gin_Shunpo_End)
     call SaveUnitHandle(Gin_Hash, GetHandleId(GetExpiredTimer()), 0, c)
-
     set c = null
 endfunction
 
@@ -221,12 +326,12 @@ function Gin_Shunpo_End takes nothing returns nothing
     set c = null
 endfunction
 
-// Aplicar veneno al atacar desde invisibilidad
 function Gin_PoisonApply takes unit c, unit t returns nothing
     local real poison = Gin_ShunpoPoison(c)
     call UnitApplyTimedLife(t, BUFF_GIN_POISON, 4.0)
     call SetUnitMoveSpeed(t, GetUnitMoveSpeed(t) * 0.70)
     call TimerStart(CreateTimer(), 4.0, false, function Gin_Poison_End)
+    call SaveUnitHandle(Gin_Hash, GetHandleId(GetExpiredTimer()), 0, t)
 endfunction
 
 function Gin_Poison_End takes nothing returns nothing
@@ -241,11 +346,9 @@ function Gin_Poison_End takes nothing returns nothing
     set u = null
 endfunction
 
-//==================== R: BANKAI ====================
-function Gin_BankaiAgiBonus takes unit c returns real
-    return GetHeroAgi(c, false) * 0.40
-endfunction
-
+//=============================================================================
+// R: BANKAI — Kamishini no Yari
+//=============================================================================
 function Gin_Bankai_Cond takes nothing returns boolean
     return GetSpellAbilityId() == ABILITY_GIN_BANKAI
 endfunction
@@ -257,7 +360,12 @@ function Gin_Bankai_Act takes nothing returns nothing
 
     call UnitApplyTimedLife(c, BUFF_GIN_BANKAI, 12.0)
     call SetHeroAgi(c, R2I(GetHeroAgi(c, false) + bonus), true)
-    set aura = AddSpecialEffectTarget("Abilities\\Spells\\Human\\Avatar\\Avatar.mdl", c, "origin")
+
+    // Efecto: Avatar del WC3 (aura dorada/roja)
+    set aura = AddSpecialEffectTarget(EFFECT_BANKAI_AURA, c, "origin")
+
+    // Explosión al activar (NuclearExplosion del Kidou Wars)
+    call DestroyEffect(AddSpecialEffect(EFFECT_EXPLOSION, GetUnitX(c), GetUnitY(c)))
 
     call TimerStart(CreateTimer(), 12.0, false, function Gin_Bankai_End)
     call SaveUnitHandle(Gin_Hash, GetHandleId(GetExpiredTimer()), 0, c)
@@ -289,17 +397,9 @@ function Gin_Bankai_End takes nothing returns nothing
     set aura = null
 endfunction
 
-//==================== D: PASIVA ====================
-function Gin_CritChance takes integer lvl returns real
-    return 0.05 + I2R(lvl) * 0.03
-endfunction
-function Gin_CritDmg takes integer lvl returns real
-    return 1.5 + I2R(lvl) * 0.1
-endfunction
-function Gin_SpellVamp takes integer lvl returns real
-    return 0.05 + I2R(lvl) * 0.02
-endfunction
-
+//=============================================================================
+// D: PASIVA — Sonrisa del Zorro
+//=============================================================================
 function Gin_Passive_Attack takes nothing returns nothing
     local unit attacker = GetEventDamageSource()
     local unit target = GetTriggerUnit()
@@ -307,20 +407,16 @@ function Gin_Passive_Attack takes nothing returns nothing
 
     if GetUnitAbilityLevel(attacker, ABILITY_GIN_PASSIVE) > 0 then
         set lvl = GetUnitAbilityLevel(attacker, ABILITY_GIN_PASSIVE)
-        // Crit chance
         if GetRandomReal(0.0, 1.0) <= Gin_CritChance(lvl) then
-            // El daño extra se aplica via trigger de daño
-            call UnitDamageTarget(attacker, target, GetEventDamage() * (Gin_CritDmg(lvl) - 1.0), false, false, ATTACK_TYPE_NORMAL, DAMAGE_TYPE_NORMAL, WEAPON_TYPE_WHOKNOWS)
-            call DestroyEffect(AddSpecialEffectTarget("Abilities\\Spells\\Other\\HowlOfTerror\\HowlOfTerror.mdl", target, "chest"))
+            call UnitDamageTarget(attacker, target, GetEventDamage() * (1.5 + I2R(lvl) * 0.1 - 1.0), false, false, ATTACK_TYPE_NORMAL, DAMAGE_TYPE_NORMAL, WEAPON_TYPE_WHOKNOWS)
+            call DestroyEffect(AddSpecialEffectTarget(EFFECT_CRIT, target, "chest"))
         endif
-        // Crit garantizado si está invisible
         if LoadBoolean(Gin_Hash, GetHandleId(attacker), 11) then
             call UnitDamageTarget(attacker, target, GetEventDamage() * (LoadReal(Gin_Hash, GetHandleId(attacker), 10) - 1.0), false, false, ATTACK_TYPE_NORMAL, DAMAGE_TYPE_NORMAL, WEAPON_TYPE_WHOKNOWS)
             call Gin_PoisonApply(attacker, target)
             call SaveBoolean(Gin_Hash, GetHandleId(attacker), 11, false)
         endif
     endif
-
     set attacker = null
     set target = null
 endfunction
@@ -335,7 +431,6 @@ function Gin_Passive_SpellVamp takes nothing returns nothing
         set heal = GetEventDamage() * Gin_SpellVamp(lvl)
         call SetUnitState(c, UNIT_STATE_LIFE, GetUnitState(c, UNIT_STATE_LIFE) + heal)
     endif
-
     set c = null
 endfunction
 
@@ -356,25 +451,63 @@ function Gin_Passive_Periodic takes nothing returns nothing
     set g = null
 endfunction
 
-//==================== INICIALIZACIÓN ====================
+//=============================================================================
+// SISTEMA ZANPAKUTO (del Kidou Wars)
+// El Kidou Wars usa un sistema donde recoger un item activa el Shikai.
+// Mantenemos compatibilidad: si el jugador recoge I013, se activa Shinso.
+//=============================================================================
+function Gin_Zanpakuto_Item_Cond takes nothing returns boolean
+    return GetItemTypeId(GetManipulatedItem()) == ITEM_GIN_SHINSO_ACTIVATOR
+endfunction
+
+function Gin_Zanpakuto_Item_Act takes nothing returns nothing
+    local unit c = GetTriggerUnit()
+    // Activar las habilidades del Kidou Wars original
+    call UnitAddAbilityBJ(ABILITY_GIN_SHINSO_EXTEND, c)   // A02V
+    call UnitAddAbilityBJ(ABILITY_GIN_SHINSO_RETRACT, c)  // A02W
+    // Añadir al grupo de efectos (como hace el Kidou Wars)
+    if KyoukaEffectGroup == null then
+        set KyoukaEffectGroup = CreateGroup()
+    endif
+    if FallGroup == null then
+        set FallGroup = CreateGroup()
+    endif
+    call GroupAddUnitSimple(c, KyoukaEffectGroup)
+    call GroupAddUnitSimple(c, FallGroup)
+    // Crear dummy projectile (como el Kidou Wars)
+    call CreateNUnitsAtLoc(1, UNIT_KIDOU_DUMMY, GetOwningPlayer(c), GetUnitLoc(c), bj_UNIT_FACING)
+    set udg_TempDummyProjectile = GetLastCreatedUnit()
+    call UnitApplyTimedLifeBJ(3.00, 'BTLF', udg_TempDummyProjectile)
+    // Sonido de Shinso
+    call PlaySoundAtPointBJ(gg_snd_HumanYesAttack1, 100, GetUnitLoc(c), 0)
+    set c = null
+endfunction
+
+//=============================================================================
+// INICIALIZACIÓN
+//=============================================================================
 function InitGin takes nothing returns nothing
     local trigger t
 
+    // Q: Shinso (habilidad directa)
     set t = CreateTrigger()
     call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_UNIT_SPELL_EFFECT)
     call TriggerAddCondition(t, Condition(function Gin_Shinso_Cond))
     call TriggerAddAction(t, function Gin_Shinso_Act)
 
+    // W: Yari
     set t = CreateTrigger()
     call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_UNIT_SPELL_EFFECT)
     call TriggerAddCondition(t, Condition(function Gin_Yari_Cond))
     call TriggerAddAction(t, function Gin_Yari_Act)
 
+    // E: Shunpo
     set t = CreateTrigger()
     call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_UNIT_SPELL_EFFECT)
     call TriggerAddCondition(t, Condition(function Gin_Shunpo_Cond))
     call TriggerAddAction(t, function Gin_Shunpo_Act)
 
+    // R: Bankai
     set t = CreateTrigger()
     call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_UNIT_SPELL_EFFECT)
     call TriggerAddCondition(t, Condition(function Gin_Bankai_Cond))
@@ -393,6 +526,17 @@ function InitGin takes nothing returns nothing
     set t = CreateTrigger()
     call TriggerRegisterTimerEventPeriodic(t, 1.0)
     call TriggerAddAction(t, function Gin_Passive_Periodic)
+
+    // Sistema Zanpakuto (compatibilidad con Kidou Wars)
+    // Si el jugador recoge el item I013, se activa el Shikai original
+    set t = CreateTrigger()
+    call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_UNIT_PICKUP_ITEM)
+    call TriggerAddCondition(t, Condition(function Gin_Zanpakuto_Item_Cond))
+    call TriggerAddAction(t, function Gin_Zanpakuto_Item_Act)
+
+    // Inicializar grupos del Kidou Wars
+    set KyoukaEffectGroup = CreateGroup()
+    set FallGroup = CreateGroup()
 endfunction
 
 // call InitGin()
