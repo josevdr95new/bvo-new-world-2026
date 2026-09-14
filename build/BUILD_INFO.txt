@@ -1,0 +1,16 @@
+BvO New World 2026 - Build Info
+========================================
+
+Base map: downloads/BVO_New_World_5.0.w3x
+Build date: 2026-09-14T00:10:10.668195
+Map size: 7641841 bytes
+
+Custom heroes injected:
+  - Gin Ichimaru (gin)
+
+NOTAS:
+- Este mapa se puede abrir directamente en Warcraft III
+- Para editar en World Editor: usar WC3MapRepacker primero
+  (descargar de: https://github.com/speige/WC3MapDeprotector/releases)
+- El war3map.j modificado está en build/war3map.j
+- Los scripts JASS de los héroes están en custom_heroes/

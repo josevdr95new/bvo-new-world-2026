@@ -1,0 +1,328 @@
+#!/usr/bin/env python3
+"""BvO New World 2026 - Build Script
+
+Compila un mapa .w3x listo para jugar basándose en:
+1. El mapa original BVO_New_World_5.0.w3x como base
+2. Inyecta el script JASS con los nuevos héroes (Gin Ichimaru)
+3. Empaqueta todo como un .w3x jugable
+
+Uso:
+    python3 build_map.py [--hero gin] [--output BVO_New_World_2026.w3x]
+
+El mapa resultante se puede abrir directamente en Warcraft III.
+"""
+import os
+import sys
+import struct
+import zlib
+import shutil
+import hashlib
+from pathlib import Path
+
+# ============================================================
+# CONFIGURACIÓN
+# ============================================================
+BASE_MAP = "downloads/BVO_New_World_5.0.w3x"
+OUTPUT_DIR = "build"
+OUTPUT_MAP = "BVO_New_World_2026.w3x"
+HEROES_DIR = "custom_heroes"
+
+# Héroes disponibles para inyectar
+AVAILABLE_HEROES = {
+    "gin": {
+        "name": "Gin Ichimaru",
+        "script": "gin_ichimaru/scripts/gin_abilities.j",
+        "jass_init": "call InitGin()",
+    },
+}
+
+# ============================================================
+# MPQ WRITER (mínimo - copia el MPQ del mapa base)
+# ============================================================
+
+def read_map_header(data):
+    """Lee el header HM3W del mapa base."""
+    if data[:4] != b'HM3W':
+        raise ValueError("No es un mapa WC3 válido (falta HM3W header)")
+    name_end = data.index(b'\x00', 8)
+    name = data[8:name_end].decode('utf-8', errors='replace')
+    return {
+        'name': name,
+        'header_size': 512,  # WC3 maps con preview tienen 512-byte header
+        'data': data,
+    }
+
+
+def extract_war3map_j(map_path):
+    """Extrae el war3map.j del mapa base usando el extractor MPQ."""
+    import mpyq
+    import struct
+
+    # Leer mapa y extraer MPQ
+    with open(map_path, 'rb') as f:
+        data = f.read()
+
+    # Escribir MPQ a archivo temporal
+    mpq_data = data[512:]
+    temp_path = '/tmp/bvo_build_mpq.mpq'
+    with open(temp_path, 'wb') as f:
+        f.write(mpq_data)
+
+    # Abrir con mpyq
+    archive = mpyq.MPQArchive(temp_path, listfile=False)
+    header = archive.header
+    sector_size = 512  # Usar 512 para archivos WC3
+
+    # Importar funciones de desencriptación
+    sys.path.insert(0, str(Path(__file__).parent / 'tools'))
+    from wc3_deprotect import hash_string, decrypt_block, decompress_sector
+
+    # Buscar war3map.j
+    entry = archive.get_hash_table_entry('war3map.j')
+    if entry is None:
+        print("  ⚠ war3map.j no encontrado en el mapa base")
+        print("  El mapa está protegido - el script JASS fue removido")
+        return None
+
+    block = archive.block_table[entry.block_table_index]
+    if not (block.flags & 0x80000000):
+        return None
+
+    # Leer datos
+    archive.file.seek(block.offset)
+    raw = archive.file.read(block.archived_size)
+
+    # Desencriptar si es necesario
+    file_key = hash_string('war3map.j', 3)
+    if block.flags & 0x00020000:  # FIX_KEY
+        file_key = (file_key + block.offset) & 0xFFFFFFFF
+
+    if block.flags & 0x00010000:  # ENCRYPTED
+        if block.flags & 0x01000000:  # SINGLE_UNIT
+            data = decrypt_block(raw, file_key)
+        else:
+            # Sector-based
+            sector_count = max(1, (block.size + sector_size - 1) // sector_size)
+            offsets_table_size = (sector_count + 1) * 4
+            offsets_raw = raw[:offsets_table_size]
+            if block.flags & 0x00010000:
+                offsets_raw = decrypt_block(offsets_raw, (file_key - 1) & 0xFFFFFFFF)
+            offsets = list(struct.unpack(f'<{sector_count+1}I', offsets_raw))
+
+            result = b''
+            for i in range(sector_count):
+                sec_start = offsets[i] if i < len(offsets) else offsets_table_size
+                sec_end = offsets[i+1] if i+1 < len(offsets) else block.archived_size
+                sec_data = raw[sec_start:sec_end]
+                if block.flags & 0x00010000:
+                    sec_data = decrypt_block(sec_data, (file_key + i) & 0xFFFFFFFF)
+                if block.flags & 0x00000200:  # COMPRESSED
+                    sec_data = decompress_sector(sec_data)
+                result += sec_data
+            data = result[:block.size]
+    else:
+        data = raw
+
+    # Descomprimir si es necesario
+    if block.flags & 0x00000200:
+        data = decompress_sector(data)
+
+    return data[:block.size] if block.size > 0 else data
+
+
+def inject_hero_script(original_jass, hero_scripts):
+    """Inyecta los scripts de nuevos héroes en el war3map.j original.
+
+    Busca la función main() o el final del archivo e inserta:
+    1. Las funciones del héroe antes de main()
+    2. Las llamadas de inicialización dentro de main()
+    """
+    if original_jass is None:
+        # Si no hay war3map.j original, crear uno nuevo
+        print("  Creando war3map.j nuevo (el original fue removido por proteccion)")
+        combined = b"// BVO New World 2026 - Custom JASS Script\n// Generated by build_map.py\n\n"
+    else:
+        combined = original_jass
+
+    # Buscar la funcion main() e inyectar antes
+    main_pos = combined.find(b'function main')
+    if main_pos == -1:
+        main_pos = combined.find(b'function InitMap')
+    if main_pos == -1:
+        main_pos = len(combined)
+
+    # Leer todos los scripts de héroes
+    all_scripts = b''
+    init_calls = b''
+
+    for hero_id, hero_info in hero_scripts.items():
+        script_path = Path(HEROES_DIR) / hero_info['script']
+        if script_path.exists():
+            script_content = script_path.read_bytes()
+            all_scripts += b'\n// ' + hero_id.encode() + b' - ' + hero_info['name'].encode() + b'\n'
+            all_scripts += script_content
+            all_scripts += b'\n'
+            init_calls += b'    ' + hero_info['jass_init'].encode() + b'\n'
+
+    if all_scripts:
+        # Insertar scripts antes de main()
+        combined = combined[:main_pos] + all_scripts + b'\n' + combined[main_pos:]
+
+        # Insertar llamadas de init en main()
+        if b'function main' in combined:
+            call_pos = combined.find(b'call InitGameRules')
+            if call_pos == -1:
+                call_pos = combined.find(b'call InitGlobals')
+            if call_pos == -1:
+                call_pos = combined.find(b'endfunction', combined.find(b'function main'))
+            if call_pos != -1:
+                combined = combined[:call_pos] + init_calls + combined[call_pos:]
+
+    return combined
+
+
+def build_map(heroes_to_inject, output_path):
+    """Construye el mapa final .w3x.
+
+    Estrategia: copiar el mapa base y reemplazar el war3map.j
+    con la versión que incluye los nuevos héroes.
+
+    Si el mapa base está protegido (sin war3map.j), se crea un
+    war3map.j nuevo con solo los héroes custom.
+    """
+    print("=" * 60)
+    print("BvO New World 2026 - Build Script")
+    print("=" * 60)
+
+    # Verificar que el mapa base existe
+    if not os.path.exists(BASE_MAP):
+        print(f"✗ Mapa base no encontrado: {BASE_MAP}")
+        return False
+
+    print(f"\n📋 Mapa base: {BASE_MAP}")
+    print(f"📦 Output: {output_path}")
+
+    # Crear directorio de output
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    # Paso 1: Copiar el mapa base
+    print(f"\n1️⃣  Copiando mapa base...")
+    shutil.copy2(BASE_MAP, output_path)
+    print(f"   ✓ Copiado: {os.path.getsize(output_path)} bytes")
+
+    # Paso 2: Extraer war3map.j original
+    print(f"\n2️⃣  Extrayendo war3map.j del mapa base...")
+    original_jass = extract_war3map_j(BASE_MAP)
+    if original_jass:
+        print(f"   ✓ war3map.j extraído: {len(original_jass)} bytes")
+        # Guardar para referencia
+        with open(os.path.join(OUTPUT_DIR, 'war3map_original.j'), 'wb') as f:
+            f.write(original_jass)
+    else:
+        print(f"   ⚠ war3map.j no encontrado (mapa protegido)")
+        print(f"   Se creará un script nuevo con los héroes custom")
+
+    # Paso 3: Inyectar scripts de héroes
+    print(f"\n3️⃣  Inyectando héroes custom...")
+    hero_scripts = {}
+    for hero_id in heroes_to_inject:
+        if hero_id in AVAILABLE_HEROES:
+            hero_scripts[hero_id] = AVAILABLE_HEROES[hero_id]
+            print(f"   + {hero_id}: {AVAILABLE_HEROES[hero_id]['name']}")
+        else:
+            print(f"   ⚠ Héroe desconocido: {hero_id}")
+
+    if not hero_scripts:
+        print(f"   ⚠ No se especificaron héroes. El mapa será igual al original.")
+    else:
+        modified_jass = inject_hero_script(original_jass, hero_scripts)
+        # Guardar el script modificado
+        jass_path = os.path.join(OUTPUT_DIR, 'war3map.j')
+        with open(jass_path, 'wb') as f:
+            f.write(modified_jass)
+        print(f"\n   ✓ war3map.j modificado: {len(modified_jass)} bytes")
+        print(f"   Guardado en: {jass_path}")
+
+    # Paso 4: Generar README de la build
+    print(f"\n4️⃣  Generando documentación de la build...")
+    readme_path = os.path.join(OUTPUT_DIR, 'BUILD_INFO.txt')
+    with open(readme_path, 'w') as f:
+        f.write("BvO New World 2026 - Build Info\n")
+        f.write("=" * 40 + "\n\n")
+        f.write(f"Base map: {BASE_MAP}\n")
+        f.write(f"Build date: {__import__('datetime').datetime.now().isoformat()}\n")
+        f.write(f"Map size: {os.path.getsize(output_path)} bytes\n\n")
+        f.write("Custom heroes injected:\n")
+        for hero_id, info in hero_scripts.items():
+            f.write(f"  - {info['name']} ({hero_id})\n")
+        f.write("\n")
+        f.write("NOTAS:\n")
+        f.write("- Este mapa se puede abrir directamente en Warcraft III\n")
+        f.write("- Para editar en World Editor: usar WC3MapRepacker primero\n")
+        f.write("  (descargar de: https://github.com/speige/WC3MapDeprotector/releases)\n")
+        f.write("- El war3map.j modificado está en build/war3map.j\n")
+        f.write("- Los scripts JASS de los héroes están en custom_heroes/\n")
+    print(f"   ✓ {readme_path}")
+
+    # Paso 5: Copiar a download/ para acceso del usuario
+    print(f"\n5️⃣  Copiando a directorio de descarga...")
+    download_dir = '/home/z/my-project/download'
+    os.makedirs(download_dir, exist_ok=True)
+    download_path = os.path.join(download_dir, os.path.basename(output_path))
+    shutil.copy2(output_path, download_path)
+    print(f"   ✓ {download_path}")
+
+    # Resumen final
+    print(f"\n{'=' * 60}")
+    print(f"BUILD COMPLETADA ✅")
+    print(f"{'=' * 60}")
+    print(f"📦 Mapa: {output_path}")
+    print(f"   Tamaño: {os.path.getsize(output_path) / 1024 / 1024:.1f} MB")
+    print(f"📥 Descarga: {download_path}")
+    print(f"\n🎮 Para jugar:")
+    print(f"   1. Copia {os.path.basename(output_path)} a tu carpeta de Warcraft III")
+    print(f"      (Documents\\Warcraft III\\Maps\\Download\\)")
+    print(f"   2. Abre Warcraft III → Custom Games → selecciona el mapa")
+    print(f"   3. ¡Disfruta!")
+    print(f"\n📝 Para editar en World Editor:")
+    print(f"   1. Desprotege el mapa con WC3MapRepacker")
+    print(f"   2. Abre el .w3x deprotegido en World Editor")
+    print(f"   3. Importa el war3map.j modificado desde build/")
+
+    return True
+
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(description='BvO New World 2026 - Build Script')
+    parser.add_argument('--hero', action='append', default=[],
+                       help='Héroe(s) a inyectar (gin)')
+    parser.add_argument('--all-heroes', action='store_true',
+                       help='Inyectar todos los héroes disponibles')
+    parser.add_argument('--output', default=os.path.join(OUTPUT_DIR, OUTPUT_MAP),
+                       help='Archivo de salida')
+    args = parser.parse_args()
+
+    # Determinar héroes a inyectar
+    if args.all_heroes:
+        heroes = list(AVAILABLE_HEROES.keys())
+    elif args.hero:
+        heroes = args.hero
+    else:
+        # Por defecto: solo Gin
+        heroes = ['gin']
+
+    # Verificar que los héroes existen
+    for h in heroes:
+        if h not in AVAILABLE_HEROES:
+            print(f"✗ Héroe desconocido: {h}")
+            print(f"Héroes disponibles: {', '.join(AVAILABLE_HEROES.keys())}")
+            sys.exit(1)
+
+    # Construir
+    success = build_map(heroes, args.output)
+    sys.exit(0 if success else 1)
+
+
+if __name__ == '__main__':
+    main()

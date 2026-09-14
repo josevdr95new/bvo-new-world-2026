@@ -1,0 +1,393 @@
+//=============================================================================
+// Gin Ichimaru — Custom Hero JASS Script for BvO New World 2026
+// Zanpakuto: Shinso / Kamishini no Yari
+//=============================================================================
+
+globals
+    integer ABILITY_GIN_SHINSO    = 'A0GI'  // Q
+    integer ABILITY_GIN_YARI      = 'A0GJ'  // W
+    integer ABILITY_GIN_SHUNPO    = 'A0GK'  // E
+    integer ABILITY_GIN_BANKAI    = 'A0GL'  // R
+    integer ABILITY_GIN_PASSIVE   = 'A0GM'  // D
+    integer UNIT_GIN_DUMMY       = 'n0GI'
+    integer BUFF_GIN_POISON      = 'B0GI'
+    integer BUFF_GIN_INVIS       = 'B0GJ'
+    integer BUFF_GIN_BANKAI      = 'B0GK'
+    integer BUFF_GIN_ARMOR_RED   = 'B0GL'
+    integer BUFF_GIN_CRIT        = 'B0GM'
+    hashtable Gin_Hash = InitHashtable()
+endglobals
+
+//==================== STATS ====================
+function Gin_GetHP takes integer lvl returns real
+    return 850.0 + 75.0 * I2R(lvl - 1)
+endfunction
+function Gin_GetMana takes integer lvl returns real
+    return 350.0 + 28.0 * I2R(lvl - 1)
+endfunction
+function Gin_GetAGI takes integer lvl returns real
+    return 30.0 + 3.5 * I2R(lvl - 1)
+endfunction
+
+//==================== Q: SHINSO ====================
+function Gin_ShinsoDmg takes unit c returns real
+    return GetHeroAgi(c, true) * 2.0 + 70.0
+endfunction
+function Gin_ShinsoRange takes integer lvl returns real
+    return 700.0 + I2R(lvl) * 100.0
+endfunction
+
+function Gin_Shinso_Cond takes nothing returns boolean
+    return GetSpellAbilityId() == ABILITY_GIN_SHINSO
+endfunction
+
+function Gin_Shinso_Act takes nothing returns nothing
+    local unit c = GetTriggerUnit()
+    local integer lvl = GetUnitAbilityLevel(c, ABILITY_GIN_SHINSO)
+    local real dmg = Gin_ShinsoDmg(c)
+    local real r = Gin_ShinsoRange(lvl)
+    local real cx = GetUnitX(c)
+    local real cy = GetUnitY(c)
+    local location t = GetSpellTargetLoc()
+    real tx = GetLocationX(t)
+    real ty = GetLocationY(t)
+    local real ang = Atan2(ty - cy, tx - cx)
+    local group g = CreateGroup()
+    local unit u
+    local real ux, uy, dist, uang, perp
+    local boolean bankai = GetUnitAbilityLevel(c, BUFF_GIN_BANKAI) > 0
+
+    call DestroyEffect(AddSpecialEffect("Abilities\\Weapons\\HuntressMissile\\HuntressMissile.mdl", cx, cy))
+
+    call GroupEnumUnitsInRange(g, cx, cy, r, null)
+    loop
+        set u = FirstOfGroup(g)
+        exitwhen u == null
+        call GroupRemoveUnit(g, u)
+        if IsUnitEnemy(u, GetOwningPlayer(c)) and not IsUnitType(u, UNIT_TYPE_DEAD) then
+            set ux = GetUnitX(u)
+            set uy = GetUnitY(u)
+            set dist = SquareRoot((ux-cx)*(ux-cx) + (uy-cy)*(uy-cy))
+            if dist <= r then
+                set uang = Atan2(uy - cy, ux - cx)
+                set perp = ang - uang
+                if perp > 3.14159 then
+                    set perp = perp - 6.28318
+                elseif perp < -3.14159 then
+                    set perp = perp + 6.28318
+                endif
+                if Abs(perp) < 0.2618 then  // ±15 grados
+                    call UnitDamageTarget(c, u, dmg, false, false, ATTACK_TYPE_NORMAL, DAMAGE_TYPE_NORMAL, WEAPON_TYPE_WHOKNOWS)
+                    call DestroyEffect(AddSpecialEffectTarget("Abilities\\Spells\\Human\\Banish\\BanishTarget.mdl", u, "chest"))
+                    // Knockback
+                    call SetUnitPosition(u, ux + 100 * Cos(uang), uy + 100 * Sin(uang))
+                    // En Bankai: atraviesa a todos
+                    if not bankai then
+                        call GroupClear(g)
+                    endif
+                endif
+            endif
+        endif
+    endloop
+
+    // Permitir reactivación para pull
+    call SaveBoolean(Gin_Hash, GetHandleId(c), 0, true)
+    call SaveReal(Gin_Hash, GetHandleId(c), 1, cx)
+    call SaveReal(Gin_Hash, GetHandleId(c), 2, cy)
+    call TimerStart(CreateTimer(), 3.0, false, function Gin_ShinsoPull_End)
+
+    call RemoveLocation(t)
+    call DestroyGroup(g)
+    set c = null
+    set t = null
+    set g = null
+endfunction
+
+function Gin_ShinsoPull_End takes nothing returns nothing
+    local timer tm = GetExpiredTimer()
+    call SaveBoolean(Gin_Hash, GetHandleId(tm), 0, false)
+    call FlushChildHashtable(Gin_Hash, GetHandleId(tm))
+    call DestroyTimer(tm)
+    set tm = null
+endfunction
+
+//==================== W: YARI ====================
+function Gin_YariDmg takes unit c, integer lvl returns real
+    return (GetHeroAgi(c, true) * 1.8 + 50.0) * I2R(lvl)
+endfunction
+function Gin_YariArmor takes integer lvl returns real
+    return I2R(3 + lvl)
+endfunction
+
+function Gin_Yari_Cond takes nothing returns boolean
+    return GetSpellAbilityId() == ABILITY_GIN_YARI
+endfunction
+
+function Gin_Yari_Act takes nothing returns nothing
+    local unit c = GetTriggerUnit()
+    local integer lvl = GetUnitAbilityLevel(c, ABILITY_GIN_YARI)
+    local real dmg = Gin_YariDmg(c, lvl)
+    local real arm = Gin_YariArmor(lvl)
+    local real cx = GetUnitX(c)
+    local real cy = GetUnitY(c)
+    local location t = GetSpellTargetLoc()
+    real tx = GetLocationX(t)
+    real ty = GetLocationY(t)
+    local real ang = Atan2(ty - cy, tx - cx)
+    local group g = CreateGroup()
+    local unit u
+    local real ux, uy, dist, uang, perp
+
+    call DestroyEffect(AddSpecialEffect("Abilities\\Spells\\Human\\MarkOfChaos\\MarkOfChaosTarget.mdl", cx, cy))
+
+    call GroupEnumUnitsInRange(g, cx, cy, 1200.0, null)
+    loop
+        set u = FirstOfGroup(g)
+        exitwhen u == null
+        call GroupRemoveUnit(g, u)
+        if IsUnitEnemy(u, GetOwningPlayer(c)) and not IsUnitType(u, UNIT_TYPE_DEAD) then
+            set ux = GetUnitX(u)
+            set uy = GetUnitY(u)
+            set dist = SquareRoot((ux-cx)*(ux-cx) + (uy-cy)*(uy-cy))
+            set uang = Atan2(uy - cy, ux - cx)
+            set perp = ang - uang
+            if perp > 3.14159 then
+                set perp = perp - 6.28318
+            elseif perp < -3.14159 then
+                set perp = perp + 6.28318
+            endif
+            if dist <= 1200.0 and Abs(perp) < 0.1309 then  // ±7.5 grados (línea estrecha)
+                call UnitDamageTarget(c, u, dmg, false, false, ATTACK_TYPE_NORMAL, DAMAGE_TYPE_NORMAL, WEAPON_TYPE_WHOKNOWS)
+                call UnitApplyTimedLife(u, BUFF_GIN_ARMOR_RED, 5.0)
+                call DestroyEffect(AddSpecialEffectTarget("Abilities\\Spells\\Other\\HowlOfTerror\\HowlOfTerror.mdl", u, "chest"))
+            endif
+        endif
+    endloop
+
+    call RemoveLocation(t)
+    call DestroyGroup(g)
+    set c = null
+    set t = null
+    set g = null
+endfunction
+
+//==================== E: SHUNPO ====================
+function Gin_ShunpoDur takes integer lvl returns real
+    return 2.0 + I2R(lvl) * 0.5
+endfunction
+function Gin_ShunpoCrit takes integer lvl returns real
+    return 2.0 + I2R(lvl) * 0.3
+endfunction
+function Gin_ShunpoPoison takes unit c returns real
+    return GetHeroAgi(c, true) * 0.5
+endfunction
+
+function Gin_Shunpo_Cond takes nothing returns boolean
+    return GetSpellAbilityId() == ABILITY_GIN_SHUNPO
+endfunction
+
+function Gin_Shunpo_Act takes nothing returns nothing
+    local unit c = GetTriggerUnit()
+    local integer lvl = GetUnitAbilityLevel(c, ABILITY_GIN_SHUNPO)
+    local real dur = Gin_ShunpoDur(lvl)
+    local real crit = Gin_ShunpoCrit(lvl)
+
+    call UnitApplyTimedLife(c, BUFF_GIN_INVIS, dur)
+    call SaveReal(Gin_Hash, GetHandleId(c), 10, crit)
+    call SaveBoolean(Gin_Hash, GetHandleId(c), 11, true)
+    call DestroyEffect(AddSpecialEffectTarget("Abilities\\Spells\\Human\\Invisibility\\Invisibility.mdl", c, "origin"))
+
+    // Programar remoción del crit buff
+    call TimerStart(CreateTimer(), dur, false, function Gin_Shunpo_End)
+    call SaveUnitHandle(Gin_Hash, GetHandleId(GetExpiredTimer()), 0, c)
+
+    set c = null
+endfunction
+
+function Gin_Shunpo_End takes nothing returns nothing
+    local timer tm = GetExpiredTimer()
+    local unit c = LoadUnitHandle(Gin_Hash, GetHandleId(tm), 0)
+    if c != null then
+        call SaveBoolean(Gin_Hash, GetHandleId(c), 11, false)
+        call FlushChildHashtable(Gin_Hash, GetHandleId(tm))
+    endif
+    call DestroyTimer(tm)
+    set tm = null
+    set c = null
+endfunction
+
+// Aplicar veneno al atacar desde invisibilidad
+function Gin_PoisonApply takes unit c, unit t returns nothing
+    local real poison = Gin_ShunpoPoison(c)
+    call UnitApplyTimedLife(t, BUFF_GIN_POISON, 4.0)
+    call SetUnitMoveSpeed(t, GetUnitMoveSpeed(t) * 0.70)
+    call TimerStart(CreateTimer(), 4.0, false, function Gin_Poison_End)
+endfunction
+
+function Gin_Poison_End takes nothing returns nothing
+    local timer tm = GetExpiredTimer()
+    local unit u = LoadUnitHandle(Gin_Hash, GetHandleId(tm), 0)
+    if u != null then
+        call SetUnitMoveSpeed(u, GetUnitDefaultMoveSpeed(u))
+    endif
+    call FlushChildHashtable(Gin_Hash, GetHandleId(tm))
+    call DestroyTimer(tm)
+    set tm = null
+    set u = null
+endfunction
+
+//==================== R: BANKAI ====================
+function Gin_BankaiAgiBonus takes unit c returns real
+    return GetHeroAgi(c, false) * 0.40
+endfunction
+
+function Gin_Bankai_Cond takes nothing returns boolean
+    return GetSpellAbilityId() == ABILITY_GIN_BANKAI
+endfunction
+
+function Gin_Bankai_Act takes nothing returns nothing
+    local unit c = GetTriggerUnit()
+    local real bonus = Gin_BankaiAgiBonus(c)
+    local effect aura
+
+    call UnitApplyTimedLife(c, BUFF_GIN_BANKAI, 12.0)
+    call SetHeroAgi(c, R2I(GetHeroAgi(c, false) + bonus), true)
+    set aura = AddSpecialEffectTarget("Abilities\\Spells\\Human\\Avatar\\Avatar.mdl", c, "origin")
+
+    call TimerStart(CreateTimer(), 12.0, false, function Gin_Bankai_End)
+    call SaveUnitHandle(Gin_Hash, GetHandleId(GetExpiredTimer()), 0, c)
+    call SaveEffectHandle(Gin_Hash, GetHandleId(GetExpiredTimer()), 1, aura)
+    call SaveReal(Gin_Hash, GetHandleId(GetExpiredTimer()), 2, bonus)
+
+    set c = null
+    set aura = null
+endfunction
+
+function Gin_Bankai_End takes nothing returns nothing
+    local timer tm = GetExpiredTimer()
+    local integer id = GetHandleId(tm)
+    local unit c = LoadUnitHandle(Gin_Hash, id, 0)
+    local effect aura = LoadEffectHandle(Gin_Hash, id, 1)
+    local real bonus = LoadReal(Gin_Hash, id, 2)
+
+    if c != null then
+        call SetHeroAgi(c, R2I(GetHeroAgi(c, false) - bonus), true)
+        call UnitRemoveAbility(c, BUFF_GIN_BANKAI)
+    endif
+    if aura != null then
+        call DestroyEffect(aura)
+    endif
+    call FlushChildHashtable(Gin_Hash, id)
+    call DestroyTimer(tm)
+    set tm = null
+    set c = null
+    set aura = null
+endfunction
+
+//==================== D: PASIVA ====================
+function Gin_CritChance takes integer lvl returns real
+    return 0.05 + I2R(lvl) * 0.03
+endfunction
+function Gin_CritDmg takes integer lvl returns real
+    return 1.5 + I2R(lvl) * 0.1
+endfunction
+function Gin_SpellVamp takes integer lvl returns real
+    return 0.05 + I2R(lvl) * 0.02
+endfunction
+
+function Gin_Passive_Attack takes nothing returns nothing
+    local unit attacker = GetEventDamageSource()
+    local unit target = GetTriggerUnit()
+    local integer lvl
+
+    if GetUnitAbilityLevel(attacker, ABILITY_GIN_PASSIVE) > 0 then
+        set lvl = GetUnitAbilityLevel(attacker, ABILITY_GIN_PASSIVE)
+        // Crit chance
+        if GetRandomReal(0.0, 1.0) <= Gin_CritChance(lvl) then
+            // El daño extra se aplica via trigger de daño
+            call UnitDamageTarget(attacker, target, GetEventDamage() * (Gin_CritDmg(lvl) - 1.0), false, false, ATTACK_TYPE_NORMAL, DAMAGE_TYPE_NORMAL, WEAPON_TYPE_WHOKNOWS)
+            call DestroyEffect(AddSpecialEffectTarget("Abilities\\Spells\\Other\\HowlOfTerror\\HowlOfTerror.mdl", target, "chest"))
+        endif
+        // Crit garantizado si está invisible
+        if LoadBoolean(Gin_Hash, GetHandleId(attacker), 11) then
+            call UnitDamageTarget(attacker, target, GetEventDamage() * (LoadReal(Gin_Hash, GetHandleId(attacker), 10) - 1.0), false, false, ATTACK_TYPE_NORMAL, DAMAGE_TYPE_NORMAL, WEAPON_TYPE_WHOKNOWS)
+            call Gin_PoisonApply(attacker, target)
+            call SaveBoolean(Gin_Hash, GetHandleId(attacker), 11, false)
+        endif
+    endif
+
+    set attacker = null
+    set target = null
+endfunction
+
+function Gin_Passive_SpellVamp takes nothing returns nothing
+    local unit c = GetEventDamageSource()
+    local integer lvl
+    local real heal
+
+    if GetUnitAbilityLevel(c, ABILITY_GIN_PASSIVE) > 0 then
+        set lvl = GetUnitAbilityLevel(c, ABILITY_GIN_PASSIVE)
+        set heal = GetEventDamage() * Gin_SpellVamp(lvl)
+        call SetUnitState(c, UNIT_STATE_LIFE, GetUnitState(c, UNIT_STATE_LIFE) + heal)
+    endif
+
+    set c = null
+endfunction
+
+function Gin_Passive_Speed takes nothing returns nothing
+    local unit c = GetEnumUnit()
+    local integer lvl = GetUnitAbilityLevel(c, ABILITY_GIN_PASSIVE)
+    if lvl > 0 then
+        call SetUnitMoveSpeed(c, GetUnitDefaultMoveSpeed(c) + 10.0 + I2R(lvl) * 5.0)
+    endif
+    set c = null
+endfunction
+
+function Gin_Passive_Periodic takes nothing returns nothing
+    local group g = CreateGroup()
+    call GroupEnumUnitsOfType(g, "hero", null)
+    call ForGroup(g, function Gin_Passive_Speed)
+    call DestroyGroup(g)
+    set g = null
+endfunction
+
+//==================== INICIALIZACIÓN ====================
+function InitGin takes nothing returns nothing
+    local trigger t
+
+    set t = CreateTrigger()
+    call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_UNIT_SPELL_EFFECT)
+    call TriggerAddCondition(t, Condition(function Gin_Shinso_Cond))
+    call TriggerAddAction(t, function Gin_Shinso_Act)
+
+    set t = CreateTrigger()
+    call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_UNIT_SPELL_EFFECT)
+    call TriggerAddCondition(t, Condition(function Gin_Yari_Cond))
+    call TriggerAddAction(t, function Gin_Yari_Act)
+
+    set t = CreateTrigger()
+    call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_UNIT_SPELL_EFFECT)
+    call TriggerAddCondition(t, Condition(function Gin_Shunpo_Cond))
+    call TriggerAddAction(t, function Gin_Shunpo_Act)
+
+    set t = CreateTrigger()
+    call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_UNIT_SPELL_EFFECT)
+    call TriggerAddCondition(t, Condition(function Gin_Bankai_Cond))
+    call TriggerAddAction(t, function Gin_Bankai_Act)
+
+    // D: Pasiva — attack crit + spell vamp
+    set t = CreateTrigger()
+    call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_UNIT_DAMAGED)
+    call TriggerAddAction(t, function Gin_Passive_Attack)
+
+    set t = CreateTrigger()
+    call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_UNIT_DAMAGED)
+    call TriggerAddAction(t, function Gin_Passive_SpellVamp)
+
+    // D: Pasiva — speed bonus (periodic)
+    set t = CreateTrigger()
+    call TriggerRegisterTimerEventPeriodic(t, 1.0)
+    call TriggerAddAction(t, function Gin_Passive_Periodic)
+endfunction
+
+// call InitGin()
