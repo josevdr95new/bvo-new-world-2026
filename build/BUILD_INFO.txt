@@ -2,7 +2,7 @@ BvO New World 2026 - Build Info
 ========================================
 
 Base map: downloads/BVO_New_World_5.0.w3x
-Build date: 2026-09-14T00:10:10.668195
+Build date: 2026-09-14T04:25:57.371308
 Map size: 7641841 bytes
 
 Custom heroes injected:
